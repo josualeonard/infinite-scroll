@@ -128,6 +128,12 @@ class The_Infinite_Scroll {
 
 								break;
 
+              // Add our custom posts arguments
+							case 'posts_args' :
+									$settings[ $key ] = $value;
+
+								break;
+
 							default:
 								continue;
 
@@ -272,6 +278,16 @@ class The_Infinite_Scroll {
 		// Check that we have an id.
 		if ( empty( $id ) )
 			return;
+
+    // Force set time for custom arguments
+    if(self::$settings['posts_args']){
+      $loop = new WP_Query( self::$settings['posts_args'] );
+      $posts = $loop->get_posts();
+      if(count($posts>0)){
+        $last_post = end($posts);
+        self::$the_time = $last_post->post_date_gmt;
+      }
+    }
 
 		// Bail if there are not enough posts for infinity.
 		if ( ! self::set_last_post_time() )
@@ -694,6 +710,9 @@ class The_Infinite_Scroll {
 	function query() {
 		global $wp_query, $wp_the_query;
 
+    // Sometimes page=1 is redirected by wordpress to /1/. We need to trick it.
+    if(!isset($_GET['page']) && basename($_SERVER['REDIRECT_URL'])) $_GET['page']=basename($_SERVER['REDIRECT_URL']);
+
 		if ( ! isset( $_GET['page'] ) || ! current_theme_supports( 'infinite-scroll' ) )
 			die;
 
@@ -708,7 +727,8 @@ class The_Infinite_Scroll {
 			array_push( $post_status, 'private' );
 
 		$order = in_array( $_GET['order'], array( 'ASC', 'DESC' ) ) ? $_GET['order'] : 'DESC';
-
+    // When using custom arguments, replace default settings with our settings
+    if(self::get_settings()->posts_args) $wp_the_query->query_vars = self::get_settings()->posts_args;
 		$query_args = array_merge( $wp_the_query->query_vars, array(
 			'paged'          => $page,
 			'post_status'    => $post_status,
@@ -818,7 +838,7 @@ class The_Infinite_Scroll {
 	 * @return bool
 	 */
 	public function archive_supports_infinity() {
-		return (bool) apply_filters( 'infinite_scroll_archive_supported', current_theme_supports( 'infinite-scroll' ) && ( is_home() || is_archive() ), self::get_settings() );
+		return (bool) apply_filters( 'infinite_scroll_archive_supported', current_theme_supports( 'infinite-scroll' ) /*&& ( is_home() || is_archive() )*/, self::get_settings() );
 	}
 
 	/**
